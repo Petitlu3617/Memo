@@ -1,6 +1,6 @@
 # Mémo
 
-Cartes de révision à répétition espacée (méthode Leitner), installable sur téléphone (application web / PWA), sans compte ni serveur. 
+Cartes de révision à répétition espacée (méthode Leitner), installable sur téléphone (application web / PWA), sans compte ni serveur.
 
 ## Principe
 
@@ -34,4 +34,4 @@ Puis ouvre <http://localhost:8000>.
 
 ## Installer sur le téléphone
 
-Avec GitHub Pages activé sur le dépôt, l'appli est à l'adresse `https://petitlu3617.github.io/m-mo/`. Ouvre-la sur le téléphone, puis « Ajouter à l'écran d'accueil » (Safari) ou « Installer l'application » (Chrome). Elle fonctionne ensuite hors ligne. Après une modification des fichiers, incrémente `VERSION` dans `sw.js`.
+Avec GitHub Pages activé sur le dépôt, l'appli est à l'adresse `https://petitlu3617.github.io/Memo/`. Ouvre-la sur le téléphone, puis « Ajouter à l'écran d'accueil » (Safari) ou « Installer l'application » (Chrome). Elle fonctionne ensuite hors ligne. Après une modification des fichiers, incrémente `VERSION` dans `sw.js`.
