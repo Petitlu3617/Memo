@@ -19,7 +19,7 @@ const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()
 const INT=[1,2,4,7,30,90,180,365];
 const FREQ=['Tous les jours','Tous les 2 jours','Tous les 4 jours','Chaque semaine','Chaque mois','Tous les 3 mois','Tous les 6 mois','Chaque année'];
 const COLORS=['#8b7cff','#4fc3f7','#4dd0a8','#c4f25f','#ffd54f','#ffa25f','#ff7a7a','#f48fb1','#ce93d8','#90a4ae'];
-const KEY='memo-cartes', APPV='3';
+const KEY='memo-cartes', APPV='4';
 const TITLES={accueil:"Aujourd'hui",paquets:'Paquets',reglages:'Réglages & données'};
 
 /* ---------- Données ---------- */
@@ -40,6 +40,20 @@ const cardsOf=id=>D.cards.filter(c=>c.deck===id);
 const isDue=(c,t=today())=>c.due<=t;
 const dueOf=id=>D.cards.filter(c=>(!id||c.deck===id)&&isDue(c));
 const labs=d=>[d&&d.la||'Recto',d&&d.lb||'Verso'];
+/* Lecture à voix haute (synthèse vocale du téléphone) : une langue par face du paquet. */
+const LANGS=[['fr-FR','Français'],['en-GB','Anglais (UK)'],['en-US','Anglais (US)'],['es-ES','Espagnol'],['de-DE','Allemand'],['it-IT','Italien'],['pt-PT','Portugais'],['pt-BR','Portugais (Brésil)'],['nl-NL','Néerlandais'],['ru-RU','Russe'],['ar-SA','Arabe'],['zh-CN','Chinois'],['ja-JP','Japonais'],['ko-KR','Coréen']];
+const TTS='speechSynthesis' in window&&'SpeechSynthesisUtterance' in window;
+const voix=d=>[d&&d.va||'fr-FR',d&&d.vb||'fr-FR'];
+function speak(text,lang){
+  if(!TTS||!text)return;
+  const ss=speechSynthesis; ss.cancel();
+  const u=new SpeechSynthesisUtterance(text); u.lang=lang; u.rate=.9;
+  const vs=ss.getVoices(), base=lang.split('-')[0];
+  const v=vs.find(x=>x.lang.replace('_','-')===lang)||vs.find(x=>x.lang.toLowerCase().startsWith(base));
+  if(v)u.voice=v;
+  ss.speak(u);
+}
+const spk=(f,lang)=>TTS?`<button class="spk" type="button" data-act="speak" data-f="${f}" aria-label="Écouter" title="Écouter (${esc((LANGS.find(l=>l[0]===lang)||[,lang])[1])})"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg></button>`:'';
 const newCard=(deck,a,b)=>({id:uid(),deck,a,b,box:1,due:today(),side:0,ok:0,ko:0,created:today(),last:null});
 const dueTxt=c=>{const t=today();if(c.due<=t)return 'à réviser';const n=Math.round((toDate(c.due)-toDate(t))/864e5);return n===1?'demain':n<14?'dans '+n+' j':dYear.format(toDate(c.due))};
 
@@ -147,12 +161,12 @@ function vReview(){
     </div>`;
   }
   const c=cardOf(q.ids[q.i]), d=deckOf(c.deck), [la,lb]=labs(d);
-  const Q=c.side?c.b:c.a, A=c.side?c.a:c.b, lq=c.side?lb:la, lr=c.side?la:lb;
+  const Q=c.side?c.b:c.a, A=c.side?c.a:c.b, lq=c.side?lb:la, lr=c.side?la:lb, [va,vb]=voix(d), vq=c.side?vb:va, vr=c.side?va:vb;
   return top+`${q.practice?'<p class="small muted center">Entraînement : les boîtes ne changent pas.</p>':''}
   <div class="flash${q.shown?' flipped':''}" style="--c:${esc(d.color)}" data-act="flip" role="button" tabindex="0" aria-label="Retourner la carte">
     <div class="inner">
-      <div class="face front"><span class="lab">${dot(d.color)} ${esc(d.name)} · ${esc(lq)}</span><div class="txt">${esc(Q)}</div><span class="hint">Touche pour retourner</span></div>
-      <div class="face back"><span class="lab">${dot(d.color)} ${esc(lr)}</span><div class="txt">${esc(A)}</div><div class="qsmall">${esc(Q)}</div></div>
+      <div class="face front"><div class="ftop"><span class="lab">${dot(d.color)} ${esc(d.name)} · ${esc(lq)}</span>${spk('q',vq)}</div><div class="txt">${esc(Q)}</div><span class="hint">Touche pour retourner</span></div>
+      <div class="face back"><div class="ftop"><span class="lab">${dot(d.color)} ${esc(lr)}</span>${spk('a',vr)}</div><div class="txt">${esc(A)}</div><div class="qsmall">${esc(Q)}</div></div>
     </div>
   </div>
   <p class="small muted center">Boîte ${c.box} · ${FREQ[c.box-1]}</p>
@@ -177,6 +191,7 @@ function vReglages(){
   <p class="small muted center">Mémo · version ${APPV}</p>`;
 }
 
+if(TTS)speechSynthesis.getVoices(); // déclenche le chargement des voix
 function render(){
   if(S.tab==='paquets'&&S.deck&&!deckOf(S.deck))S.deck=null;
   const rev=!!S.q;
@@ -232,19 +247,22 @@ function openDlg(html){dlgf.innerHTML=html;S.armed=null;dlg.showModal();const f=
 function closeDlg(){if(dlg.open)dlg.close()}
 
 function dlgDeck(id){
-  const d=deckOf(id)||{name:'',color:COLORS[D.decks.length%COLORS.length],la:'',lb:''}, n=id?cardsOf(id).length:0;
+  const d=deckOf(id)||{name:'',color:COLORS[D.decks.length%COLORS.length],la:'',lb:''}, n=id?cardsOf(id).length:0, [va,vb]=voix(d);
+  const sel=(i,v)=>`<select id="${i}">${LANGS.map(([k,t])=>`<option value="${k}"${k===v?' selected':''}>${t}</option>`).join('')}</select>`;
   openDlg(`<h2>${id?'Modifier le paquet':'Nouveau paquet'}</h2>
     <label class="fld"><span>Nom du thème</span><input id="dn" value="${esc(d.name)}" placeholder="Anglais, Histoire, Capitales…" maxlength="60"></label>
     <div class="fld"><span>Couleur</span><div class="swatches">${COLORS.map(c=>`<label style="--c:${c}"><input type="radio" name="col" value="${c}"${c===d.color?' checked':''}><i></i></label>`).join('')}</div></div>
     <div class="two"><label class="fld"><span>Nom de la face 1</span><input id="dla" value="${esc(d.la)}" placeholder="Recto (ex. Anglais)" maxlength="30"></label><label class="fld"><span>Nom de la face 2</span><input id="dlb" value="${esc(d.lb)}" placeholder="Verso (ex. Français)" maxlength="30"></label></div>
+    ${TTS?`<div class="two"><label class="fld"><span>Langue de lecture, face 1</span>${sel('dva',va)}</label><label class="fld"><span>Langue de lecture, face 2</span>${sel('dvb',vb)}</label></div>`:''}
     <div class="row end">${id?`<button class="btn red" type="button" data-act="deldeck" data-d="${id}" data-n="${n}">Supprimer</button><span class="grow"></span>`:''}<button class="btn" type="button" data-act="close">Annuler</button><button class="btn acc" type="button" data-act="savedeck" data-d="${id||''}">Enregistrer</button></div>`);
 }
 function saveDeck(id){
   const name=$('#dn').value.trim(); if(!name)return $('#dn').focus();
   const color=(dlgf.querySelector('[name=col]:checked')||{}).value||COLORS[0], la=$('#dla').value.trim(), lb=$('#dlb').value.trim();
+  const [va,vb]=TTS?[$('#dva').value,$('#dvb').value]:voix(deckOf(id));
   let d=deckOf(id);
-  if(d)Object.assign(d,{name,color,la,lb});
-  else{d={id:uid(),name,color,la,lb};D.decks.push(d);S.tab='paquets';S.deck=d.id;S.filtre='';S.bulk=false}
+  if(d)Object.assign(d,{name,color,la,lb,va,vb});
+  else{d={id:uid(),name,color,la,lb,va,vb};D.decks.push(d);S.tab='paquets';S.deck=d.id;S.filtre='';S.bulk=false}
   save(); closeDlg(); render();
 }
 
@@ -334,6 +352,7 @@ const ACT={
   bulk:()=>{S.bulk=!S.bulk;render();const f=$(S.bulk?'#bulk':'#na');if(f)f.focus()},
   start:b=>start(b.dataset.d),
   flip:flip,
+  speak:b=>{const q=S.q,c=q&&cardOf(q.ids[q.i]);if(!c)return;const d=deckOf(c.deck),[va,vb]=voix(d),q1=b.dataset.f==='q';speak(q1===!c.side?c.a:c.b,q1===!c.side?va:vb)},
   answer:b=>answer(b.dataset.ok==='1'),
   undo:undo,
   practice:()=>{const ids=shuffle([...new Set(S.q.failed)]);start(S.q.deck,ids,true)},
@@ -358,6 +377,7 @@ document.addEventListener('keydown',e=>{
   if(!done&&(e.key===' '||e.key==='Enter')){e.preventDefault();flip()}
   else if(!done&&S.q.shown&&(e.key==='ArrowRight'||e.key==='1')){e.preventDefault();answer(true)}
   else if(!done&&S.q.shown&&(e.key==='ArrowLeft'||e.key==='2')){e.preventDefault();answer(false)}
+  else if(!done&&(e.key==='l'||e.key==='L')){const b=$(S.q.shown?'.back .spk':'.front .spk');if(b)ACT.speak(b)}
   else if(e.key==='Escape'){S.q=null;render()}
 });
 dlg.addEventListener('click',e=>{if(e.target===dlg)closeDlg()});
