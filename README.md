@@ -19,8 +19,8 @@ Après chaque révision, la carte **change de côté** : la fois suivante, c'est
 
 - **Aujourd'hui** : cartes à réviser (en retard comprises), par paquet ou toutes ensemble, répartition dans les 8 boîtes, prévision des 7 prochains jours, série de jours.
 - **Révision** : carte qui se retourne, « Je savais / Je ne savais pas », annulation de la dernière réponse, puis possibilité de revoir tout de suite les cartes ratées (entraînement sans effet sur les boîtes). Au clavier : Espace pour retourner, → je savais, ← je ne savais pas.
-- **Paquets** : un paquet par thème avec sa couleur et le nom de ses deux faces (ex. Anglais / Français). Ajout de cartes une par une ou en lot (`face 1 ; face 2` par ligne, ou copier-coller depuis un tableur), recherche, modification, changement de boîte.
-- **Données** : sauvegarde/restauration JSON.
+- **Paquets** : un paquet par thème avec sa couleur et le nom de ses deux faces (ex. Anglais / Français). Ajout de cartes une par une ou en lot (`face 1 ; face 2` par ligne, copier-coller depuis un tableur, ou fichier `.txt` / `.csv` au même format), recherche, modification, changement de boîte.
+- **Données** : sauvegarde JSON ; à l'import, choix entre ajouter aux cartes existantes (les paquets de même nom sont fusionnés, les doublons ignorés) ou tout remplacer.
 
 Les données restent dans le navigateur de l'appareil (`localStorage`, clé `memo-cartes`). Exporte régulièrement une sauvegarde.
 

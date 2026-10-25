@@ -33,7 +33,7 @@ function load(){try{return norm(JSON.parse(localStorage.getItem(KEY)||'null'))||
 let D=load();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){toast('Enregistrement impossible : stockage plein ou bloqué')}}
 
-const S={tab:'accueil',deck:null,q:null,filtre:'',bulk:false,armed:null};
+const S={tab:'accueil',deck:null,q:null,filtre:'',bulk:false,armed:null,imp:null};
 const deckOf=id=>D.decks.find(d=>d.id===id);
 const cardOf=id=>D.cards.find(c=>c.id===id);
 const cardsOf=id=>D.cards.filter(c=>c.deck===id);
@@ -117,7 +117,8 @@ function vDeck(){
   <div class="card" style="--c:${esc(d.color)}">
     <div class="head"><h2>Ajouter ${S.bulk?'plusieurs cartes':'une carte'}</h2><button class="link" type="button" data-act="bulk">${S.bulk?'Une seule carte':'Import en lot'}</button></div>
     ${S.bulk?`<label class="fld"><span>Une carte par ligne : ${esc(la)} ; ${esc(lb)}</span><textarea id="bulk" rows="7" placeholder="${esc('apple ; pomme\nto run ; courir')}"></textarea></label>
-      <div class="row"><button class="btn colored" type="button" data-act="addbulk">Importer</button><span class="small muted">Séparateur : point-virgule ou tabulation (copier-coller depuis un tableur).</span></div>`
+      <div class="row"><button class="btn colored" type="button" data-act="addbulk">Importer</button><button class="btn" type="button" data-act="bulkfile">Depuis un fichier…</button></div>
+      <span class="small muted">Séparateur : point-virgule ou tabulation (copier-coller depuis un tableur). Un fichier .txt ou .csv au même format s'ajoute directement à ce paquet.</span>`
     :`<div class="two"><label class="fld"><span>${esc(la)}</span><textarea id="na" rows="2"></textarea></label><label class="fld"><span>${esc(lb)}</span><textarea id="nb" rows="2"></textarea></label></div>
       <div class="row"><button class="btn colored" type="button" data-act="addcard">Ajouter</button><span class="small muted">Elle part en boîte 1, à réviser dès aujourd'hui.</span></div>`}
   </div>
@@ -266,19 +267,25 @@ function saveCard(id){
 
 /* ---------- Actions ---------- */
 function arm(k){if(S.armed===k){S.armed=null;return true}S.armed=k;setTimeout(()=>{if(S.armed===k){S.armed=null;dlg.open?resetArmed():render()}},3000);return false}
-function resetArmed(){$$('#dlgf .armed').forEach(b=>{b.classList.remove('armed');b.textContent='Supprimer'})}
+function resetArmed(){$$('#dlgf .armed').forEach(b=>{b.classList.remove('armed');b.textContent=b.dataset.lab||'Supprimer'})}
 
 function addCard(){
   const a=$('#na').value.trim(), b=$('#nb').value.trim();
   if(!a||!b)return toast('Remplis les deux faces');
   D.cards.push(newCard(S.deck,a,b)); save(); render(); $('#na').focus(); toast('Carte ajoutée');
 }
-function addBulk(){
-  const lines=$('#bulk').value.split(/\r?\n/); let n=0, bad=0;
-  for(const l of lines){if(!l.trim())continue;const m=l.match(/^(.*?)\s*[;\t]\s*(.*)$/);if(m&&m[1].trim()&&m[2].trim()){D.cards.push(newCard(S.deck,m[1].trim(),m[2].trim()));n++}else bad++}
+function addLines(text){
+  let n=0, bad=0;
+  for(const l of String(text).replace(/^\uFEFF/,'').split(/\r?\n/)){if(!l.trim())continue;const m=l.match(/^(.*?)\s*[;\t]\s*(.*)$/);if(m&&m[1].trim()&&m[2].trim()){D.cards.push(newCard(S.deck,m[1].trim(),m[2].trim()));n++}else bad++}
   if(!n)return toast('Aucune ligne reconnue (format : face 1 ; face 2)');
   save(); S.bulk=false; render(); toast(pl(n,'carte ajoutée','cartes ajoutées')+(bad?` · ${bad} ignorée${bad>1?'s':''}`:''));
 }
+const addBulk=()=>addLines($('#bulk').value);
+/* Fichier texte (.txt, .csv…) : une carte par ligne, ajoutée au paquet ouvert. */
+$('#cardsf').addEventListener('change',e=>{
+  const f=e.target.files[0]; e.target.value=''; if(!f||!S.deck)return;
+  f.text().then(addLines).catch(()=>toast('Fichier illisible'));
+});
 
 function exportData(){
   const b=new Blob([JSON.stringify(Object.assign({app:'memo',version:1,exported:new Date().toISOString()},D),null,1)],{type:'application/json'});
@@ -287,11 +294,26 @@ function exportData(){
 $('#importf').addEventListener('change',e=>{
   const f=e.target.files[0]; e.target.value=''; if(!f)return;
   f.text().then(t=>{
-    const x=norm(JSON.parse(t)); if(!x)throw 0;
-    if(!confirm(`Remplacer les données actuelles par cette sauvegarde (${pl(x.decks.length,'paquet')}, ${pl(x.cards.length,'carte')}) ?`))return;
-    D=x; save(); S.deck=null; render(); toast('Sauvegarde importée');
-  }).catch(()=>toast('Fichier invalide'));
+    const x=norm(JSON.parse(t.replace(/^\uFEFF/,''))); if(!x)throw 0;
+    if(!D.cards.length&&!D.decks.length)return importData(x,false);
+    S.imp=x;
+    openDlg(`<h2>Importer une sauvegarde</h2>
+      <p class="sub">Ce fichier contient ${pl(x.decks.length,'paquet')} et ${pl(x.cards.length,'carte')}.</p>
+      <p class="sub"><b>Ajouter</b> garde tes cartes actuelles et leur progression. <b>Tout remplacer</b> efface ce qu'il y a dans l'appli.</p>
+      <div class="row end"><button class="btn red" type="button" data-act="imprep" data-lab="Tout remplacer">Tout remplacer</button><span class="grow"></span><button class="btn" type="button" data-act="close">Annuler</button><button class="btn acc" type="button" data-act="impadd">Ajouter</button></div>`);
+  }).catch(()=>toast('Fichier invalide : choisis une sauvegarde Mémo (.json)'));
 });
+function importData(x,merge){
+  if(merge){
+    /* Un paquet du même nom est fusionné ; une carte déjà présente (mêmes faces) est ignorée. */
+    const map={}, nd=[], nc=[], has=new Set(D.cards.map(c=>c.deck+'\n'+na(c.a)+'\n'+na(c.b))), ids=new Set(D.cards.map(c=>c.id));
+    for(const d of x.decks){const e=D.decks.find(y=>y.id===d.id||na(y.name).trim()===na(d.name).trim());if(e)map[d.id]=e.id;else{nd.push(d);map[d.id]=d.id}}
+    for(const c of x.cards){const deck=map[c.deck];if(!deck)continue;const k=deck+'\n'+na(c.a)+'\n'+na(c.b);if(has.has(k))continue;has.add(k);nc.push(Object.assign({},c,{deck,id:ids.has(c.id)?uid():c.id}))}
+    D.decks.push(...nd); D.cards.push(...nc);
+    toast(`${pl(nd.length,'paquet ajouté','paquets ajoutés')}, ${pl(nc.length,'carte ajoutée','cartes ajoutées')}`);
+  }else{D=x;toast('Sauvegarde importée')}
+  S.imp=null; S.deck=null; save(); closeDlg(); render();
+}
 
 const ACT={
   tab:b=>{S.tab=b.dataset.t;S.deck=null;S.armed=null;render();scrollTo(0,0)},
@@ -317,6 +339,9 @@ const ACT={
   quit:()=>{S.q=null;render();scrollTo(0,0)},
   export:exportData,
   import:()=>$('#importf').click(),
+  impadd:()=>S.imp&&importData(S.imp,true),
+  imprep:b=>{if(!S.imp)return;if(!arm('imprep')){b.classList.add('armed');b.textContent='Confirmer : tout remplacer';return}importData(S.imp,false)},
+  bulkfile:()=>$('#cardsf').click(),
   wipe:()=>{if(!arm('wipe'))return render();D=blank();save();S.deck=null;render();toast('Données effacées')},
 };
 document.addEventListener('click',e=>{
