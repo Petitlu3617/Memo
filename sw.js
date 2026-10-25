@@ -1,5 +1,5 @@
 /* Mémo : cache de l'appli pour l'utiliser hors ligne. Changer VERSION à chaque mise à jour des fichiers. */
-const VERSION='memo-v6';
+const VERSION='memo-v7';
 const SHELL=['./','index.html','style.css','app.js','manifest.webmanifest','icons/memo-icon.svg','icons/memo-icon-192.png','icons/memo-icon-512.png'];
 
 self.addEventListener('install',e=>{

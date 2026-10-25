@@ -18,8 +18,9 @@ const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()
 /* Boîtes Leitner : intervalle (jours) avant la prochaine révision, selon la boîte où se trouve la carte. */
 const INT=[1,2,4,7,30,90,180,365];
 const FREQ=['Tous les jours','Tous les 2 jours','Tous les 4 jours','Chaque semaine','Chaque mois','Tous les 3 mois','Tous les 6 mois','Chaque année'];
-const COLORS=['#8b7cff','#4fc3f7','#4dd0a8','#c4f25f','#ffd54f','#ffa25f','#ff7a7a','#f48fb1','#ce93d8','#90a4ae'];
-const KEY='memo-cartes', APPV='6';
+const COLORS=['#8b7cff','#4fc3f7','#4dd0a8','#c4f25f','#ffd54f','#ffa25f','#ff7a7a','#f48fb1','#ce93d8','#90a4ae',
+  '#5c9dff','#26c6da','#66bb6a','#a1887f','#ffcc80','#ff8a65','#f06292','#ba68c8','#7986cb','#e0e0e0'];
+const KEY='memo-cartes', APPV='7';
 const TITLES={accueil:"Aujourd'hui",paquets:'Paquets',reglages:'Réglages & données'};
 
 /* ---------- Données ---------- */
