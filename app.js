@@ -19,7 +19,7 @@ const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()
 const INT=[1,2,4,7,30,90,180,365];
 const FREQ=['Tous les jours','Tous les 2 jours','Tous les 4 jours','Chaque semaine','Chaque mois','Tous les 3 mois','Tous les 6 mois','Chaque année'];
 const COLORS=['#8b7cff','#4fc3f7','#4dd0a8','#c4f25f','#ffd54f','#ffa25f','#ff7a7a','#f48fb1','#ce93d8','#90a4ae'];
-const KEY='memo-cartes';
+const KEY='memo-cartes', APPV='3';
 const TITLES={accueil:"Aujourd'hui",paquets:'Paquets',reglages:'Réglages & données'};
 
 /* ---------- Données ---------- */
@@ -173,7 +173,8 @@ function vReglages(){
     <p class="sub">${pl(D.decks.length,'paquet')}, ${pl(D.cards.length,'carte')}. Tout reste sur cet appareil : exporte une sauvegarde pour la garder ou passer sur un autre appareil.</p>
     <div class="row"><button class="btn" type="button" data-act="export">Exporter (JSON)</button><button class="btn" type="button" data-act="import">Importer…</button></div>
     <div class="row"><button class="btn red${S.armed==='wipe'?' armed':''}" type="button" data-act="wipe">${S.armed==='wipe'?'Confirmer : tout effacer':'Tout effacer'}</button></div>
-  </div>`;
+  </div>
+  <p class="small muted center">Mémo · version ${APPV}</p>`;
 }
 
 function render(){
