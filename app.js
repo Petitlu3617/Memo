@@ -19,7 +19,7 @@ const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()
 const INT=[1,2,4,7,30,90,180,365];
 const FREQ=['Tous les jours','Tous les 2 jours','Tous les 4 jours','Chaque semaine','Chaque mois','Tous les 3 mois','Tous les 6 mois','Chaque année'];
 const COLORS=['#8b7cff','#4fc3f7','#4dd0a8','#c4f25f','#ffd54f','#ffa25f','#ff7a7a','#f48fb1','#ce93d8','#90a4ae'];
-const KEY='memo-cartes', APPV='4';
+const KEY='memo-cartes', APPV='5';
 const TITLES={accueil:"Aujourd'hui",paquets:'Paquets',reglages:'Réglages & données'};
 
 /* ---------- Données ---------- */
@@ -254,6 +254,9 @@ function dlgDeck(id){
     <div class="fld"><span>Couleur</span><div class="swatches">${COLORS.map(c=>`<label style="--c:${c}"><input type="radio" name="col" value="${c}"${c===d.color?' checked':''}><i></i></label>`).join('')}</div></div>
     <div class="two"><label class="fld"><span>Nom de la face 1</span><input id="dla" value="${esc(d.la)}" placeholder="Recto (ex. Anglais)" maxlength="30"></label><label class="fld"><span>Nom de la face 2</span><input id="dlb" value="${esc(d.lb)}" placeholder="Verso (ex. Français)" maxlength="30"></label></div>
     ${TTS?`<div class="two"><label class="fld"><span>Langue de lecture, face 1</span>${sel('dva',va)}</label><label class="fld"><span>Langue de lecture, face 2</span>${sel('dvb',vb)}</label></div>`:''}
+    ${id&&D.decks.length>1?`<div class="fld merge"><span>Fusionner dans un autre paquet</span>
+      <div class="row"><select id="dmerge">${D.decks.filter(x=>x.id!==id).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><button class="btn" type="button" data-act="mergedeck" data-d="${id}" data-lab="Fusionner">Fusionner</button></div>
+      <small class="muted">Les ${pl(n,'carte')} de ce paquet y passent avec leur progression, puis ce paquet est supprimé.</small></div>`:''}
     <div class="row end">${id?`<button class="btn red" type="button" data-act="deldeck" data-d="${id}" data-n="${n}">Supprimer</button><span class="grow"></span>`:''}<button class="btn" type="button" data-act="close">Annuler</button><button class="btn acc" type="button" data-act="savedeck" data-d="${id||''}">Enregistrer</button></div>`);
 }
 function saveDeck(id){
@@ -343,6 +346,14 @@ const ACT={
   deldeck:b=>{
     if(!arm('deldeck')){b.classList.add('armed');b.textContent=+b.dataset.n?`Confirmer (${pl(+b.dataset.n,'carte')} supprimée${+b.dataset.n>1?'s':''})`:'Confirmer';return}
     const id=b.dataset.d; D.decks=D.decks.filter(d=>d.id!==id); D.cards=D.cards.filter(c=>c.deck!==id); S.deck=null; save(); closeDlg(); render();
+  },
+  mergedeck:b=>{
+    if(!arm('mergedeck')){b.classList.add('armed');b.textContent='Confirmer la fusion';return}
+    const from=b.dataset.d, to=$('#dmerge').value, dt=deckOf(to); if(!dt||from===to)return;
+    const has=new Set(cardsOf(to).map(c=>na(c.a)+'\n'+na(c.b))); let n=0, dup=0;
+    D.cards=D.cards.filter(c=>{if(c.deck!==from)return true;if(has.has(na(c.a)+'\n'+na(c.b))){dup++;return false}c.deck=to;n++;return true});
+    D.decks=D.decks.filter(d=>d.id!==from); S.tab='paquets'; S.deck=to; S.filtre='';
+    save(); closeDlg(); render(); toast(`${pl(n,'carte déplacée','cartes déplacées')} dans « ${dt.name} »`+(dup?` · ${dup} doublon${dup>1?'s':''} retiré${dup>1?'s':''}`:''));
   },
   editcard:b=>dlgCard(b.dataset.c),
   savecard:b=>saveCard(b.dataset.c),
