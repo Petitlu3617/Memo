@@ -19,7 +19,7 @@ const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()
 const INT=[1,2,4,7,30,90,180,365];
 const FREQ=['Tous les jours','Tous les 2 jours','Tous les 4 jours','Chaque semaine','Chaque mois','Tous les 3 mois','Tous les 6 mois','Chaque année'];
 const COLORS=['#8b7cff','#4fc3f7','#4dd0a8','#c4f25f','#ffd54f','#ffa25f','#ff7a7a','#f48fb1','#ce93d8','#90a4ae'];
-const KEY='memo-cartes', APPV='5';
+const KEY='memo-cartes', APPV='6';
 const TITLES={accueil:"Aujourd'hui",paquets:'Paquets',reglages:'Réglages & données'};
 
 /* ---------- Données ---------- */
@@ -33,7 +33,7 @@ function load(){try{return norm(JSON.parse(localStorage.getItem(KEY)||'null'))||
 let D=load();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){toast('Enregistrement impossible : stockage plein ou bloqué')}}
 
-const S={tab:'accueil',deck:null,q:null,filtre:'',bulk:false,armed:null,imp:null};
+const S={tab:'accueil',deck:null,q:null,filtre:'',bulk:false,armed:null,imp:null,sel:null};
 const deckOf=id=>D.decks.find(d=>d.id===id);
 const cardOf=id=>D.cards.find(c=>c.id===id);
 const cardsOf=id=>D.cards.filter(c=>c.deck===id);
@@ -137,14 +137,26 @@ function vDeck(){
       <div class="row"><button class="btn colored" type="button" data-act="addcard">Ajouter</button><span class="small muted">Elle part en boîte 1, à réviser dès aujourd'hui.</span></div>`}
   </div>
   ${cs.length?vBoxes(d.id):''}
-  ${cs.length?`<div class="card"><div class="head"><h2>Cartes</h2><input id="filtre" type="search" placeholder="Rechercher…" value="${esc(S.filtre)}" autocomplete="off"></div><div class="list" id="cardlist">${vCardList()}</div></div>`:''}`;
+  ${cs.length?`<div class="card"><div class="head"><h2>Cartes</h2><input id="filtre" type="search" placeholder="Rechercher…" value="${esc(S.filtre)}" autocomplete="off"></div><p class="small muted">Appui long sur une carte pour en sélectionner plusieurs.</p><div class="list" id="cardlist">${vCardList()}</div></div><div id="selbar">${vSelBar()}</div>`:''}`;
 }
 
-function vCardList(){
+function visibleCards(){
   const f=na(S.filtre).trim();
-  const cs=cardsOf(S.deck).filter(c=>!f||na(c.a+' '+c.b).includes(f)).sort((x,y)=>x.box-y.box||na(x.a).localeCompare(na(y.a)));
+  return cardsOf(S.deck).filter(c=>!f||na(c.a+' '+c.b).includes(f)).sort((x,y)=>x.box-y.box||na(x.a).localeCompare(na(y.a)));
+}
+/* Sélection multiple (appui long sur une carte) : barre d'actions en bas de l'écran. */
+function vSelBar(){
+  const sel=S.sel; if(!sel)return '';
+  const others=D.decks.filter(d=>d.id!==S.deck), n=sel.size;
+  return `<div class="selbar"><div class="row"><b>${n} sélectionnée${n>1?'s':''}</b><span class="grow"></span><button class="btn sm" type="button" data-act="selall">Tout</button><button class="btn sm" type="button" data-act="selnone">Annuler</button></div>
+    <div class="row">${others.length?`<select id="selto" aria-label="Paquet de destination">${others.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select><button class="btn sm acc" type="button" data-act="selmove"${n?'':' disabled'}>Déplacer</button>`:'<span class="small muted grow">Crée un autre paquet pour pouvoir y déplacer des cartes.</span>'}<button class="btn sm red" type="button" data-act="seldel" data-lab="Supprimer"${n?'':' disabled'}>Supprimer</button></div></div>`;
+}
+function updSel(){if(S.sel&&!S.sel.size)S.sel=null;const l=$('#cardlist'),b=$('#selbar');if(l)l.innerHTML=vCardList();if(b)b.innerHTML=vSelBar()}
+function vCardList(){
+  const cs=visibleCards();
   if(!cs.length)return '<p class="sub">Aucune carte trouvée.</p>';
-  return cs.map(c=>`<button class="item plain" type="button" data-act="editcard" data-c="${c.id}"><span class="badge num">${c.box}</span><span class="tx"><b>${esc(c.a)}</b><span>${esc(c.b)}</span></span><span class="due${isDue(c)?' on':''}">${esc(dueTxt(c))}</span></button>`).join('');
+  const sel=S.sel;
+  return cs.map(c=>`<button class="item plain${sel?' selmode':''}${sel&&sel.has(c.id)?' on':''}" type="button" data-act="editcard" data-c="${c.id}">${sel?`<span class="chk" aria-hidden="true">${sel.has(c.id)?'✓':''}</span>`:''}<span class="badge num">${c.box}</span><span class="tx"><b>${esc(c.a)}</b><span>${esc(c.b)}</span></span><span class="due${isDue(c)?' on':''}">${esc(dueTxt(c))}</span></button>`).join('');
 }
 
 function vReview(){
@@ -338,8 +350,8 @@ function importData(x,merge){
 }
 
 const ACT={
-  tab:b=>{S.tab=b.dataset.t;S.deck=null;S.armed=null;render();scrollTo(0,0)},
-  opendeck:b=>{S.tab='paquets';S.deck=b.dataset.d;S.filtre='';S.bulk=false;render();scrollTo(0,0)},
+  tab:b=>{S.tab=b.dataset.t;S.deck=null;S.armed=null;S.sel=null;render();scrollTo(0,0)},
+  opendeck:b=>{S.tab='paquets';S.deck=b.dataset.d;S.filtre='';S.bulk=false;S.sel=null;render();scrollTo(0,0)},
   newdeck:()=>dlgDeck(null),
   editdeck:b=>dlgDeck(b.dataset.d),
   savedeck:b=>saveDeck(b.dataset.d),
@@ -355,7 +367,24 @@ const ACT={
     D.decks=D.decks.filter(d=>d.id!==from); S.tab='paquets'; S.deck=to; S.filtre='';
     save(); closeDlg(); render(); toast(`${pl(n,'carte déplacée','cartes déplacées')} dans « ${dt.name} »`+(dup?` · ${dup} doublon${dup>1?'s':''} retiré${dup>1?'s':''}`:''));
   },
-  editcard:b=>dlgCard(b.dataset.c),
+  editcard:b=>{
+    if(lp){lp=false;return}
+    if(S.sel){const id=b.dataset.c;S.sel.has(id)?S.sel.delete(id):S.sel.add(id);return updSel()}
+    dlgCard(b.dataset.c);
+  },
+  selall:()=>{S.sel=new Set(visibleCards().map(c=>c.id));updSel()},
+  selnone:()=>{S.sel=null;updSel()},
+  selmove:()=>{
+    const to=$('#selto').value, dt=deckOf(to); if(!dt||!S.sel)return;
+    const has=new Set(cardsOf(to).map(c=>na(c.a)+'\n'+na(c.b))); let n=0, dup=0;
+    D.cards=D.cards.filter(c=>{if(!S.sel.has(c.id))return true;if(has.has(na(c.a)+'\n'+na(c.b))){dup++;return false}c.deck=to;n++;return true});
+    S.sel=null; save(); render();
+    toast(`${pl(n,'carte déplacée','cartes déplacées')} vers « ${dt.name} »`+(dup?` · ${dup} doublon${dup>1?'s':''} retiré${dup>1?'s':''}`:''));
+  },
+  seldel:b=>{
+    if(!arm('seldel')){b.classList.add('armed');b.textContent=`Confirmer (${S.sel.size})`;return}
+    const n=S.sel.size; D.cards=D.cards.filter(c=>!S.sel.has(c.id)); S.sel=null; save(); render(); toast(pl(n,'carte supprimée','cartes supprimées'));
+  },
   savecard:b=>saveCard(b.dataset.c),
   delcard:b=>{if(!arm('delcard')){b.classList.add('armed');b.textContent='Confirmer';return}D.cards=D.cards.filter(c=>c.id!==b.dataset.c);save();closeDlg();render()},
   close:closeDlg,
@@ -375,6 +404,18 @@ const ACT={
   bulkfile:()=>$('#cardsf').click(),
   wipe:()=>{if(!arm('wipe'))return render();D=blank();save();S.deck=null;render();toast('Données effacées')},
 };
+/* Appui long (0,5 s) sur une carte de la liste : démarre la sélection multiple. */
+let lp=false, lpT=null, lpX=0, lpY=0;
+const lpStop=()=>{clearTimeout(lpT);lpT=null};
+document.addEventListener('pointerdown',e=>{
+  lp=false; lpStop();
+  const b=e.target.closest('#cardlist [data-c]'); if(!b)return;
+  lpX=e.clientX; lpY=e.clientY;
+  lpT=setTimeout(()=>{lpT=null;lp=true;S.sel=S.sel||new Set();S.sel.add(b.dataset.c);if(navigator.vibrate)try{navigator.vibrate(25)}catch(_){}updSel()},500);
+});
+document.addEventListener('pointermove',e=>{if(lpT&&Math.hypot(e.clientX-lpX,e.clientY-lpY)>10)lpStop()});
+['pointerup','pointercancel','scroll'].forEach(t=>document.addEventListener(t,lpStop,true));
+document.addEventListener('contextmenu',e=>{if(e.target.closest('#cardlist [data-c]'))e.preventDefault()});
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]'); if(!b||b.disabled)return;
   const f=ACT[b.dataset.act]; if(f){e.preventDefault();f(b)}
