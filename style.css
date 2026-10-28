@@ -158,5 +158,20 @@ dialog::backdrop{background:rgba(5,6,12,.7)}
 
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);font-weight:600;font-size:14px;padding:10px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:.2s;max-width:calc(100vw - 32px);z-index:20}
 .toast.on{opacity:1;transform:translate(-50%,0)}
-@media (prefers-reduced-motion:reduce){.flash .inner,.prog i,.toast{transition:none}}
+/* Carte de l'Europe */
+.carte{display:block;width:100%;height:auto;border-radius:16px;overflow:hidden}
+.carte .sea{fill:#0f1324}
+.carte .land{fill:#2b3150}
+.carte .bord{fill:none;stroke:#4a5277;stroke-width:.7;vector-effect:non-scaling-stroke}
+.carte .pt{fill:var(--c,var(--acc));stroke:#0d0f1a;stroke-width:3}
+.carte .mk:not(.on) .pt{opacity:.7}
+.carte .hit{fill:transparent}
+.carte [data-act]{cursor:pointer}
+.carte .ring{fill:none;stroke:var(--c,var(--acc));stroke-width:5;transform-box:fill-box;transform-origin:center;animation:ping 1.8s ease-out infinite}
+@keyframes ping{from{transform:scale(1);opacity:.9}to{transform:scale(3.4);opacity:0}}
+.carte.mini{width:auto;max-width:100%;max-height:34vh;margin:0 auto}
+.fld+.carte.mini{margin-top:-4px}
+.mcap{display:flex;flex-direction:column;gap:2px;width:100%;margin-top:10px;padding:12px 14px;border-radius:14px;background:var(--card2);border:1px solid var(--line);text-align:left}
+.mcap span{color:var(--ink2);font-size:14px}
+@media (prefers-reduced-motion:reduce){.flash .inner,.prog i,.toast{transition:none}.carte .ring{animation:none;opacity:.6;transform:scale(2)}}
 body:has(.selbar) .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}

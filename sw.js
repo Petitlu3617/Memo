@@ -1,6 +1,6 @@
 /* Mémo : cache de l'appli pour l'utiliser hors ligne. Changer VERSION à chaque mise à jour des fichiers. */
-const VERSION='memo-v7';
-const SHELL=['./','index.html','style.css','app.js','manifest.webmanifest','icons/memo-icon.svg','icons/memo-icon-192.png','icons/memo-icon-512.png'];
+const VERSION='memo-v8';
+const SHELL=['./','index.html','style.css','app.js','carte-europe.js','manifest.webmanifest','icons/memo-icon.svg','icons/memo-icon-192.png','icons/memo-icon-512.png'];
 
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(VERSION).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));

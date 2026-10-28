@@ -20,7 +20,7 @@ const INT=[1,2,4,7,30,90,180,365];
 const FREQ=['Tous les jours','Tous les 2 jours','Tous les 4 jours','Chaque semaine','Chaque mois','Tous les 3 mois','Tous les 6 mois','Chaque année'];
 const COLORS=['#8b7cff','#4fc3f7','#4dd0a8','#c4f25f','#ffd54f','#ffa25f','#ff7a7a','#f48fb1','#ce93d8','#90a4ae',
   '#5c9dff','#26c6da','#66bb6a','#a1887f','#ffcc80','#ff8a65','#f06292','#ba68c8','#7986cb','#e0e0e0'];
-const KEY='memo-cartes', APPV='7';
+const KEY='memo-cartes', APPV='8';
 const TITLES={accueil:"Aujourd'hui",paquets:'Paquets',reglages:'Réglages & données'};
 
 /* ---------- Données ---------- */
@@ -34,7 +34,7 @@ function load(){try{return norm(JSON.parse(localStorage.getItem(KEY)||'null'))||
 let D=load();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){toast('Enregistrement impossible : stockage plein ou bloqué')}}
 
-const S={tab:'accueil',deck:null,q:null,filtre:'',bulk:false,armed:null,imp:null,sel:null};
+const S={tab:'accueil',deck:null,q:null,filtre:'',bulk:false,armed:null,imp:null,sel:null,msel:null};
 const deckOf=id=>D.decks.find(d=>d.id===id);
 const cardOf=id=>D.cards.find(c=>c.id===id);
 const cardsOf=id=>D.cards.filter(c=>c.deck===id);
@@ -55,6 +55,25 @@ function speak(text,lang){
   ss.speak(u);
 }
 const spk=(f,lang)=>TTS?`<button class="spk" type="button" data-act="speak" data-f="${f}" aria-label="Écouter" title="Écouter (${esc((LANGS.find(l=>l[0]===lang)||[,lang])[1])})"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg></button>`:'';
+/* ---------- Carte de l'Europe (facultative) : une carte peut porter un lieu, geo = [latitude, longitude]. ---------- */
+const MC=window.MEMO_CARTE||null;
+function geoXY(g){
+  const r=Math.PI/180, s0=Math.sin(MC.p0*r), c0=Math.cos(MC.p0*r), l=(g[1]-MC.l0)*r, p=g[0]*r, cl=Math.cos(l), sp=Math.sin(p), cp=Math.cos(p);
+  const k=Math.sqrt(2/(1+s0*sp+c0*cp*cl));
+  return [MC.tx+MC.k*k*cp*Math.sin(l), MC.ty-MC.k*k*(c0*sp-s0*cp*cl)];
+}
+const parseGeo=s=>{const m=String(s||'').trim().match(/^(-?\d{1,2}(?:\.\d+)?)\s*[,\s]\s*(-?\d{1,3}(?:\.\d+)?)$/);if(!m)return null;const a=+m[1],b=+m[2];return Math.abs(a)<=90&&Math.abs(b)<=180?[a,b]:null};
+const hasGeo=c=>!!c&&Array.isArray(c.geo)&&c.geo.length===2&&isFinite(c.geo[0])&&isFinite(c.geo[1]);
+const geoTxt=c=>hasGeo(c)?c.geo[0]+', '+c.geo[1]:'';
+/* Le fond de carte est posé une seule fois dans la page, puis réutilisé (<use>) par chaque carte affichée. */
+if(MC)document.body.insertAdjacentHTML('afterbegin',`<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><path id="eu-land" d="${MC.land}"/><path id="eu-bord" d="${MC.borders}"/></defs></svg>`);
+function vCarte(cs,o={}){
+  if(!MC||!cs.length)return '';
+  const one=cs.length===1, list=cs.slice().sort((a,b)=>(a.id===o.sel)-(b.id===o.sel));
+  const mk=list.map(c=>{const[x,y]=geoXY(c.geo).map(Math.round), on=one||c.id===o.sel;
+    return `<g class="mk${on?' on':''}"${o.act?` data-act="${o.act}" data-c="${c.id}"`:''} transform="translate(${x} ${y})">${on?'<circle class="ring" r="18"/>':''}${o.act?'<circle class="hit" r="34"/>':''}<circle class="pt" r="${on?14:10}"/></g>`}).join('');
+  return `<svg class="carte${o.cls?' '+o.cls:''}" viewBox="0 0 ${MC.w} ${MC.h}" role="img" aria-label="Carte de l'Europe"><rect class="sea" width="${MC.w}" height="${MC.h}"/><use href="#eu-land" class="land"/><use href="#eu-bord" class="bord"/>${mk}</svg>`;
+}
 const newCard=(deck,a,b)=>({id:uid(),deck,a,b,box:1,due:today(),side:0,ok:0,ko:0,created:today(),last:null});
 const dueTxt=c=>{const t=today();if(c.due<=t)return 'à réviser';const n=Math.round((toDate(c.due)-toDate(t))/864e5);return n===1?'demain':n<14?'dans '+n+' j':dYear.format(toDate(c.due))};
 
@@ -135,12 +154,19 @@ function vDeck(){
       <div class="row"><button class="btn colored" type="button" data-act="addbulk">Importer</button><button class="btn" type="button" data-act="bulkfile">Depuis un fichier…</button></div>
       <span class="small muted">Séparateur : point-virgule ou tabulation (copier-coller depuis un tableur). Un fichier .txt ou .csv au même format s'ajoute directement à ce paquet.</span>`
     :`<div class="two"><label class="fld"><span>${esc(la)}</span><textarea id="na" rows="2"></textarea></label><label class="fld"><span>${esc(lb)}</span><textarea id="nb" rows="2"></textarea></label></div>
+      ${MC&&cs.some(hasGeo)?`<label class="fld"><span>Lieu sur la carte (facultatif) : latitude, longitude</span><input id="ngeo" placeholder="ex. 63, 20.5" inputmode="decimal" autocomplete="off"></label>`:''}
       <div class="row"><button class="btn colored" type="button" data-act="addcard">Ajouter</button><span class="small muted">Elle part en boîte 1, à réviser dès aujourd'hui.</span></div>`}
   </div>
+  ${MC&&cs.some(hasGeo)?`<div class="card" style="--c:${esc(d.color)}"><div class="head"><h2>Carte</h2><span class="small muted">${pl(cs.filter(hasGeo).length,'lieu','lieux')}</span></div><div id="dmap">${vDeckMap()}</div></div>`:''}
   ${cs.length?vBoxes(d.id):''}
   ${cs.length?`<div class="card"><div class="head"><h2>Cartes</h2><input id="filtre" type="search" placeholder="Rechercher…" value="${esc(S.filtre)}" autocomplete="off"></div><p class="small muted">Appui long sur une carte pour en sélectionner plusieurs.</p><div class="list" id="cardlist">${vCardList()}</div></div><div id="selbar">${vSelBar()}</div>`:''}`;
 }
 
+/* Vue d'ensemble : tous les lieux du paquet ; toucher un point affiche son nom. */
+function vDeckMap(){
+  const gs=cardsOf(S.deck).filter(hasGeo), c=gs.find(x=>x.id===S.msel);
+  return vCarte(gs,{sel:c&&c.id,act:'mapsel'})+(c?`<button class="mcap plain" type="button" data-act="editcard" data-c="${c.id}"><b>${esc(c.a)}</b><span>${esc(c.b)}</span></button>`:`<p class="small muted">Touche un point pour voir de quel lieu il s'agit.</p>`);
+}
 function visibleCards(){
   const f=na(S.filtre).trim();
   return cardsOf(S.deck).filter(c=>!f||na(c.a+' '+c.b).includes(f)).sort((x,y)=>x.box-y.box||na(x.a).localeCompare(na(y.a)));
@@ -179,7 +205,7 @@ function vReview(){
   <div class="flash${q.shown?' flipped':''}" style="--c:${esc(d.color)}" data-act="flip" role="button" tabindex="0" aria-label="Retourner la carte">
     <div class="inner">
       <div class="face front"><div class="ftop"><span class="lab">${dot(d.color)} ${esc(d.name)} · ${esc(lq)}</span>${spk('q',vq)}</div><div class="txt">${esc(Q)}</div><span class="hint">Touche pour retourner</span></div>
-      <div class="face back"><div class="ftop"><span class="lab">${dot(d.color)} ${esc(lr)}</span>${spk('a',vr)}</div><div class="txt">${esc(A)}</div><div class="qsmall">${esc(Q)}</div></div>
+      <div class="face back"><div class="ftop"><span class="lab">${dot(d.color)} ${esc(lr)}</span>${spk('a',vr)}</div><div class="txt">${esc(A)}</div>${hasGeo(c)?vCarte([c],{cls:'mini'}):''}<div class="qsmall">${esc(Q)}</div></div>
     </div>
   </div>
   <p class="small muted center">Boîte ${c.box} · ${FREQ[c.box-1]}</p>
@@ -289,12 +315,16 @@ function dlgCard(id){
     <label class="fld"><span>${esc(lb)}</span><textarea id="cb" rows="2">${esc(c.b)}</textarea></label>
     <div class="two"><label class="fld"><span>Paquet</span><select id="cdeck">${D.decks.map(x=>`<option value="${x.id}"${x.id===c.deck?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
     <label class="fld"><span>Boîte</span><select id="cbox">${INT.map((_,i)=>`<option value="${i+1}"${i+1===c.box?' selected':''}>${i+1} · ${FREQ[i]}</option>`).join('')}</select></label></div>
+    ${MC?`<label class="fld"><span>Lieu sur la carte (facultatif) : latitude, longitude</span><input id="cgeo" value="${esc(geoTxt(c))}" placeholder="ex. 63, 20.5" inputmode="decimal" autocomplete="off"></label>${hasGeo(c)?vCarte([c],{cls:'mini'}):''}`:''}
     <p class="small muted">Prochaine révision : ${esc(dueTxt(c))}, côté « ${esc(c.side?lb:la)} » d'abord. ${c.ok+c.ko?`Révisée ${pl(c.ok+c.ko,'fois','fois')}, ${c.ok} réussie${c.ok>1?'s':''}.`:'Jamais révisée.'}</p>
     <div class="row end"><button class="btn red" type="button" data-act="delcard" data-c="${id}">Supprimer</button><span class="grow"></span><button class="btn" type="button" data-act="close">Annuler</button><button class="btn acc" type="button" data-act="savecard" data-c="${id}">Enregistrer</button></div>`);
 }
 function saveCard(id){
   const c=cardOf(id), a=$('#ca').value.trim(), b=$('#cb').value.trim(); if(!a||!b)return toast('Les deux faces sont nécessaires');
+  const gi=$('#cgeo'), gs=gi?gi.value.trim():'', g=gs?parseGeo(gs):null;
+  if(gs&&!g)return toast('Lieu : écris « latitude, longitude », par ex. 63, 20.5');
   const box=+$('#cbox').value;
+  if(gi){if(g)c.geo=g;else delete c.geo}
   if(box!==c.box){c.box=box;c.due=box===1?today():iso(addDays(new Date(),INT[box-1]))}
   Object.assign(c,{a,b,deck:$('#cdeck').value});
   save(); closeDlg(); render();
@@ -307,13 +337,34 @@ function resetArmed(){$$('#dlgf .armed').forEach(b=>{b.classList.remove('armed')
 function addCard(){
   const a=$('#na').value.trim(), b=$('#nb').value.trim();
   if(!a||!b)return toast('Remplis les deux faces');
-  D.cards.push(newCard(S.deck,a,b)); save(); render(); $('#na').focus(); toast('Carte ajoutée');
+  const gi=$('#ngeo'), gs=gi?gi.value.trim():'', g=gs?parseGeo(gs):null;
+  if(gs&&!g)return toast('Lieu : écris « latitude, longitude », par ex. 63, 20.5');
+  const c=newCard(S.deck,a,b); if(g)c.geo=g;
+  D.cards.push(c); save(); render(); $('#na').focus(); toast('Carte ajoutée');
 }
 function addLines(text){
-  let n=0, bad=0;
-  for(const l of String(text).replace(/^\uFEFF/,'').split(/\r?\n/)){if(!l.trim())continue;const m=l.match(/^(.*?)\s*[;\t]\s*(.*)$/);if(m&&m[1].trim()&&m[2].trim()){D.cards.push(newCard(S.deck,m[1].trim(),m[2].trim()));n++}else bad++}
-  if(!n)return toast('Aucune ligne reconnue (format : face 1 ; face 2)');
-  save(); S.bulk=false; render(); toast(pl(n,'carte ajoutée','cartes ajoutées')+(bad?` · ${bad} ignorée${bad>1?'s':''}`:''));
+  let n=0, up=0, bad=0;
+  const cs=cardsOf(S.deck);
+  for(const l of String(text).replace(/^\uFEFF/,'').split(/\r?\n/)){
+    if(!l.trim())continue;
+    const m=l.match(/^(.*?)\s*[;\t]\s*(.*)$/);
+    if(!m||!m[1].trim()||!m[2].trim()){bad++;continue}
+    let a=m[1].trim(), b=m[2].trim(), g=null;
+    /* 3e colonne facultative : le lieu (latitude, longitude). */
+    const k=b.match(/^(.*?)\s*[;\t]\s*([^;\t]+)$/);
+    if(k&&k[1].trim()&&(g=parseGeo(k[2])))b=k[1].trim();
+    if(g){
+      /* Carte déjà dans le paquet (même texte sur une face) : on lui ajoute le lieu sans toucher à sa progression. */
+      const ka=na(a).trim(), kb=na(b).trim();
+      const e=cs.find(c=>{const x=na(c.a).trim(), y=na(c.b).trim();return x===ka||y===kb||x===kb||y===ka});
+      if(e){e.geo=g;up++;continue}
+    }
+    const c=newCard(S.deck,a,b); if(g)c.geo=g;
+    D.cards.push(c); cs.push(c); n++;
+  }
+  if(!n&&!up)return toast('Aucune ligne reconnue (format : face 1 ; face 2)');
+  save(); S.bulk=false; render();
+  toast([n&&pl(n,'carte ajoutée','cartes ajoutées'),up&&pl(up,'carte placée sur la carte','cartes placées sur la carte'),bad&&pl(bad,'ligne ignorée','lignes ignorées')].filter(Boolean).join(' · '));
 }
 const addBulk=()=>addLines($('#bulk').value);
 /* Fichier texte (.txt, .csv…) : une carte par ligne, ajoutée au paquet ouvert. */
@@ -343,7 +394,7 @@ function importData(x,merge){
     /* Un paquet du même nom est fusionné ; une carte déjà présente (mêmes faces) est ignorée. */
     const map={}, nd=[], nc=[], has=new Set(D.cards.map(c=>c.deck+'\n'+na(c.a)+'\n'+na(c.b))), ids=new Set(D.cards.map(c=>c.id));
     for(const d of x.decks){const e=D.decks.find(y=>y.id===d.id||na(y.name).trim()===na(d.name).trim());if(e)map[d.id]=e.id;else{nd.push(d);map[d.id]=d.id}}
-    for(const c of x.cards){const deck=map[c.deck];if(!deck)continue;const k=deck+'\n'+na(c.a)+'\n'+na(c.b);if(has.has(k))continue;has.add(k);nc.push(Object.assign({},c,{deck,id:ids.has(c.id)?uid():c.id}))}
+    for(const c of x.cards){const deck=map[c.deck];if(!deck)continue;const k=deck+'\n'+na(c.a)+'\n'+na(c.b);if(has.has(k)){if(hasGeo(c)){const e=D.cards.find(y=>y.deck===deck&&na(y.a)===na(c.a)&&na(y.b)===na(c.b));if(e&&!hasGeo(e))e.geo=c.geo}continue}has.add(k);nc.push(Object.assign({},c,{deck,id:ids.has(c.id)?uid():c.id}))}
     D.decks.push(...nd); D.cards.push(...nc);
     toast(`${pl(nd.length,'paquet ajouté','paquets ajoutés')}, ${pl(nc.length,'carte ajoutée','cartes ajoutées')}`);
   }else{D=x;toast('Sauvegarde importée')}
@@ -352,7 +403,7 @@ function importData(x,merge){
 
 const ACT={
   tab:b=>{S.tab=b.dataset.t;S.deck=null;S.armed=null;S.sel=null;render();scrollTo(0,0)},
-  opendeck:b=>{S.tab='paquets';S.deck=b.dataset.d;S.filtre='';S.bulk=false;S.sel=null;render();scrollTo(0,0)},
+  opendeck:b=>{S.tab='paquets';S.deck=b.dataset.d;S.filtre='';S.bulk=false;S.sel=null;S.msel=null;render();scrollTo(0,0)},
   newdeck:()=>dlgDeck(null),
   editdeck:b=>dlgDeck(b.dataset.d),
   savedeck:b=>saveDeck(b.dataset.d),
@@ -388,6 +439,7 @@ const ACT={
   },
   savecard:b=>saveCard(b.dataset.c),
   delcard:b=>{if(!arm('delcard')){b.classList.add('armed');b.textContent='Confirmer';return}D.cards=D.cards.filter(c=>c.id!==b.dataset.c);save();closeDlg();render()},
+  mapsel:b=>{S.msel=S.msel===b.dataset.c?null:b.dataset.c;const m=$('#dmap');if(m)m.innerHTML=vDeckMap()},
   close:closeDlg,
   addcard:addCard, addbulk:addBulk,
   bulk:()=>{S.bulk=!S.bulk;render();const f=$(S.bulk?'#bulk':'#na');if(f)f.focus()},
