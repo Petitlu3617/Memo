@@ -20,7 +20,7 @@ const INT=[1,2,4,7,30,90,180,365];
 const FREQ=['Tous les jours','Tous les 2 jours','Tous les 4 jours','Chaque semaine','Chaque mois','Tous les 3 mois','Tous les 6 mois','Chaque année'];
 const COLORS=['#8b7cff','#4fc3f7','#4dd0a8','#c4f25f','#ffd54f','#ffa25f','#ff7a7a','#f48fb1','#ce93d8','#90a4ae',
   '#5c9dff','#26c6da','#66bb6a','#a1887f','#ffcc80','#ff8a65','#f06292','#ba68c8','#7986cb','#e0e0e0'];
-const KEY='memo-cartes', APPV='8';
+const KEY='memo-cartes', APPV='9';
 const TITLES={accueil:"Aujourd'hui",paquets:'Paquets',reglages:'Réglages & données'};
 
 /* ---------- Données ---------- */
@@ -189,7 +189,7 @@ function vCardList(){
 function vReview(){
   const q=S.q, total=q.ids.length;
   const top=`<div class="rhead"><button class="btn sm" type="button" data-act="quit">✕ Quitter</button><span class="num muted">${Math.min(q.i+1,total)} / ${total}</span><button class="btn sm" type="button" data-act="undo"${q.undo?'':' disabled'}>↶ Annuler</button></div>
-  <div class="prog"><i style="width:${q.i/total*100}%"></i></div>`;
+  <div class="prog"><i style="width:${total?q.i/total*100:100}%"></i></div>`;
   if(q.i>=total){
     const f=q.failed.length;
     return top+`<div class="card hero center">
@@ -201,11 +201,13 @@ function vReview(){
   }
   const c=cardOf(q.ids[q.i]), d=deckOf(c.deck), [la,lb]=labs(d);
   const Q=c.side?c.b:c.a, A=c.side?c.a:c.b, lq=c.side?lb:la, lr=c.side?la:lb, [va,vb]=voix(d), vq=c.side?vb:va, vr=c.side?va:vb;
+  /* Corbeille dans le coin de la carte : un premier appui arme, le second (dans les 3 s) supprime la carte. */
+  const del=`<button class="spk del" type="button" data-act="delrev" aria-label="Supprimer cette carte" title="Supprimer cette carte"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 12.5h9l1-12.5M10 11v5.5M14 11v5.5"/></svg></button>`;
   return top+`${q.practice?'<p class="small muted center">Entraînement : les boîtes ne changent pas.</p>':''}
   <div class="flash${q.shown?' flipped':''}" style="--c:${esc(d.color)}" data-act="flip" role="button" tabindex="0" aria-label="Retourner la carte">
     <div class="inner">
-      <div class="face front"><div class="ftop"><span class="lab">${dot(d.color)} ${esc(d.name)} · ${esc(lq)}</span>${spk('q',vq)}</div><div class="txt">${esc(Q)}</div><span class="hint">Touche pour retourner</span></div>
-      <div class="face back"><div class="ftop"><span class="lab">${dot(d.color)} ${esc(lr)}</span>${spk('a',vr)}</div><div class="txt">${esc(A)}</div>${hasGeo(c)?vCarte([c],{cls:'mini'}):''}<div class="qsmall">${esc(Q)}</div></div>
+      <div class="face front"><div class="ftop"><span class="lab">${dot(d.color)} ${esc(d.name)} · ${esc(lq)}</span><span class="tools">${del}${spk('q',vq)}</span></div><div class="txt">${esc(Q)}</div><span class="hint">Touche pour retourner</span></div>
+      <div class="face back"><div class="ftop"><span class="lab">${dot(d.color)} ${esc(lr)}</span><span class="tools">${del}${spk('a',vr)}</span></div><div class="txt">${esc(A)}</div>${hasGeo(c)?vCarte([c],{cls:'mini'}):''}<div class="qsmall">${esc(Q)}</div></div>
     </div>
   </div>
   <p class="small muted center">Boîte ${c.box} · ${FREQ[c.box-1]}</p>
@@ -266,6 +268,11 @@ function answer(ok){
 }
 function undo(){
   const q=S.q, u=q&&q.undo; if(!u)return;
+  if(u.del){
+    /* Annule une suppression faite pendant la révision : la carte revient avec sa progression. */
+    D.cards.splice(Math.min(u.at,D.cards.length),0,u.del); q.ids.splice(u.qi,0,u.del.id); q.failed=u.failed;
+    q.i=u.qi; q.shown=false; q.undo=null; save(); render(); toast('Carte restaurée'); return;
+  }
   const c=cardOf(u.prev.id);
   if(c&&!q.practice){Object.assign(c,u.prev);const l=D.log[u.day];if(l){l[u.ok?'ok':'ko']--;if(!l.ok&&!l.ko)delete D.log[u.day]}save()}
   q[u.ok?'ok':'ko']--; if(!u.ok)q.failed.pop();
@@ -448,6 +455,13 @@ const ACT={
   speak:b=>{const q=S.q,c=q&&cardOf(q.ids[q.i]);if(!c)return;const d=deckOf(c.deck),[va,vb]=voix(d),q1=b.dataset.f==='q';speak(q1===!c.side?c.a:c.b,q1===!c.side?va:vb)},
   answer:b=>answer(b.dataset.ok==='1'),
   undo:undo,
+  delrev:b=>{
+    const q=S.q, c=q&&cardOf(q.ids[q.i]); if(!c)return;
+    if(!arm('delrev')){$$('.flash .del').forEach(x=>x.classList.add('armed'));toast('Touche encore la corbeille pour supprimer cette carte');return}
+    const at=D.cards.indexOf(c), failed=q.failed.slice();
+    D.cards.splice(at,1); q.ids.splice(q.i,1); q.failed=q.failed.filter(x=>x!==c.id);
+    q.undo={del:c,at,qi:q.i,failed}; q.shown=false; save(); render(); toast('Carte supprimée');
+  },
   practice:()=>{const ids=shuffle([...new Set(S.q.failed)]);start(S.q.deck,ids,true)},
   quit:()=>{S.q=null;render();scrollTo(0,0)},
   export:exportData,
