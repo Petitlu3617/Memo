@@ -20,11 +20,11 @@ const INT=[1,2,4,7,30,90,180,365];
 const FREQ=['Tous les jours','Tous les 2 jours','Tous les 4 jours','Chaque semaine','Chaque mois','Tous les 3 mois','Tous les 6 mois','Chaque année'];
 const COLORS=['#8b7cff','#4fc3f7','#4dd0a8','#c4f25f','#ffd54f','#ffa25f','#ff7a7a','#f48fb1','#ce93d8','#90a4ae',
   '#5c9dff','#26c6da','#66bb6a','#a1887f','#ffcc80','#ff8a65','#f06292','#ba68c8','#7986cb','#e0e0e0'];
-const KEY='memo-cartes', APPV='9';
+const KEY='memo-cartes', APPV='10';
 const TITLES={accueil:"Aujourd'hui",paquets:'Paquets',reglages:'Réglages & données'};
 
 /* ---------- Données ---------- */
-const blank=()=>({decks:[],cards:[],reg:{echec:'descend'},log:{}});
+const blank=()=>({decks:[],cards:[],reg:{echec:'descend',ordre:'paquet'},log:{}});
 function norm(x){
   const b=blank();
   if(!x||!Array.isArray(x.cards)||!Array.isArray(x.decks))return null;
@@ -218,8 +218,12 @@ const vAnswer=()=>S.q.shown
   :`<button class="btn acc wide" type="button" data-act="flip">Retourner</button>`;
 
 function vReglages(){
-  const e=D.reg.echec;
-  return `<div class="card"><h2>En cas d'erreur</h2>
+  const e=D.reg.echec, o=D.reg.ordre;
+  return `<div class="card"><h2>Ordre des cartes</h2>
+    <label class="opt"><input type="radio" name="ordre" value="paquet"${o!=='hasard'?' checked':''}><span><b>Dans l'ordre du paquet</b><small>Les cartes sortent dans l'ordre où elles ont été ajoutées : une révision interrompue reprend là où tu t'étais arrêté.</small></span></label>
+    <label class="opt"><input type="radio" name="ordre" value="hasard"${o==='hasard'?' checked':''}><span><b>Au hasard</b><small>Les cartes à réviser sont mélangées à chaque séance.</small></span></label>
+  </div>
+  <div class="card"><h2>En cas d'erreur</h2>
     <label class="opt"><input type="radio" name="echec" value="descend"${e!=='reset'?' checked':''}><span><b>Descendre d'une boîte</b><small>La carte revient un peu plus vite (méthode douce).</small></span></label>
     <label class="opt"><input type="radio" name="echec" value="reset"${e==='reset'?' checked':''}><span><b>Retour en boîte 1</b><small>Leitner classique : la carte repart tous les jours.</small></span></label>
   </div>
@@ -246,7 +250,8 @@ function render(){
 
 /* ---------- Révision ---------- */
 function start(deckId,ids,practice){
-  ids=ids||shuffle(dueOf(deckId||null).map(c=>c.id));
+  /* Ordre de passage : celui du paquet (ordre d'ajout des cartes, réglage par défaut) ou au hasard. */
+  if(!ids){ids=dueOf(deckId||null).map(c=>c.id);if(D.reg.ordre==='hasard')shuffle(ids)}
   if(!ids.length)return toast('Rien à réviser');
   S.q={deck:deckId||null,ids,i:0,shown:false,ok:0,ko:0,failed:[],undo:null,practice:!!practice};
   render(); scrollTo(0,0);
@@ -487,7 +492,7 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]'); if(!b||b.disabled)return;
   const f=ACT[b.dataset.act]; if(f){e.preventDefault();f(b)}
 });
-document.addEventListener('change',e=>{if(e.target.name==='echec'){D.reg.echec=e.target.value;save();toast('Réglage enregistré')}});
+document.addEventListener('change',e=>{if(e.target.name==='echec'||e.target.name==='ordre'){D.reg[e.target.name]=e.target.value;save();toast('Réglage enregistré')}});
 document.addEventListener('input',e=>{if(e.target.id==='filtre'){S.filtre=e.target.value;$('#cardlist').innerHTML=vCardList()}});
 document.addEventListener('keydown',e=>{
   if(e.target.closest('input,textarea,select'))return e.key==='Enter'&&(e.metaKey||e.ctrlKey)&&e.target.closest('#na,#nb')?addCard():undefined;
