@@ -13,6 +13,8 @@ Tu lis une face d'une carte et tu cherches ce qu'il y a derrière, puis tu la re
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Révision | tous les jours | tous les 2 jours | tous les 4 jours | chaque semaine | chaque mois | tous les 3 mois | tous les 6 mois | chaque année |
 
+Les cartes à réviser sortent **dans l'ordre du paquet** (ordre d'ajout) : si tu t'arrêtes en cours de route, tu reprends le lendemain là où tu t'étais arrêté. L'ordre au hasard reste disponible dans les réglages.
+
 Après chaque révision, la carte **change de côté** : la fois suivante, c'est l'autre face qui est posée, pour retrouver l'information dans les deux sens.
 
 ## Fonctionnalités
